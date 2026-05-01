@@ -75,8 +75,13 @@ def authorize_account(email_hint: str | None = None) -> str:
     that actually consented (pulled from the ID token / userinfo).
     """
     flow = InstalledAppFlow.from_client_config(_client_config(), SCOPES)
-    # port=0 picks a free port automatically
-    creds = flow.run_local_server(port=0, login_hint=email_hint)
+    # port=0 picks a free port automatically.
+    # prompt='select_account' forces Google to show the account picker even
+    # when a single account is already signed in, so users can't accidentally
+    # authorize the wrong Gmail. login_hint pre-selects the expected account.
+    creds = flow.run_local_server(
+        port=0, login_hint=email_hint, prompt="select_account"
+    )
 
     # Figure out which email consented by calling the Gmail API
     from googleapiclient.discovery import build
