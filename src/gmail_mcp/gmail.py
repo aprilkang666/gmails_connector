@@ -21,13 +21,23 @@ def _service(alias: str):
 
 
 def _decode_body(payload: dict) -> str:
-    """Walk the MIME tree and return the first text/plain body found."""
+    """Walk the MIME tree and return the first substantial text/plain body found.
+
+    Some senders include a tiny placeholder text/plain part (e.g. " " or
+    "View in browser") next to a real text/html body. Skip text/plain parts
+    whose stripped content is too short to be the real message, and fall
+    through to the text/html walker.
+    """
+    MIN_PLAIN_CHARS = 50
+
     def walk(part: dict) -> str | None:
         mime = part.get("mimeType", "")
         body = part.get("body", {})
         data = body.get("data")
         if mime == "text/plain" and data:
-            return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+            decoded = base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+            if len(decoded.strip()) >= MIN_PLAIN_CHARS:
+                return decoded
         for sub in part.get("parts", []) or []:
             found = walk(sub)
             if found:
