@@ -54,6 +54,19 @@ def save_to_sandbox(data: bytes, name: str) -> Path:
 def extract_pdf_text(data: bytes) -> str:
     """Extract text from a PDF byte string. Returns a readable string."""
     reader = PdfReader(io.BytesIO(data))
+    if reader.is_encrypted:
+        # Many PDFs are "encrypted" with an empty password (permissions only),
+        # which decrypts fine. A real user password does not — bail clearly
+        # rather than crashing.
+        try:
+            opened = reader.decrypt("")
+        except Exception:
+            opened = 0
+        if not opened:
+            return (
+                "(PDF is password-protected — cannot extract text without "
+                "the password)"
+            )
     pages = []
     for i, page in enumerate(reader.pages, 1):
         text = (page.extract_text() or "").strip()
