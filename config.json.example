@@ -1,6 +1,6 @@
 {
   "accounts": {
     "personal": "you@gmail.com",
-    "work": "you@company.com"
+    "work": { "email": "you@company.com", "provider": "outlook" }
   }
 }

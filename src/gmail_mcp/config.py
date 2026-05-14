@@ -1,4 +1,12 @@
-"""Config loader. Reads config.json and resolves account aliases to email addresses."""
+"""Config loader. Reads config.json and resolves account aliases to accounts.
+
+An account entry may be either:
+  - a bare email string (legacy form), which is treated as a Gmail account, or
+  - an object {"email": ..., "provider": "gmail" | "outlook"}.
+
+This keeps existing single-provider configs working unchanged while allowing
+per-account providers for mixed Gmail / Microsoft 365 setups.
+"""
 from __future__ import annotations
 
 import json
@@ -6,6 +14,8 @@ from pathlib import Path
 
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.json"
+
+SUPPORTED_PROVIDERS = ("gmail", "outlook")
 
 
 class ConfigError(Exception):
@@ -29,11 +39,48 @@ def list_account_aliases() -> list[str]:
     return list(load_config()["accounts"].keys())
 
 
-def resolve_alias(alias: str) -> str:
-    """Turn 'personal' into 'you@gmail.com'. Raises if alias not found."""
+def _normalize_account(alias: str, value: object) -> dict:
+    """Turn a raw config entry into {'email': ..., 'provider': ...}.
+
+    Accepts a bare email string (legacy, => gmail) or an object with an
+    'email' field and optional 'provider' field.
+    """
+    if isinstance(value, str):
+        return {"email": value, "provider": "gmail"}
+    if isinstance(value, dict):
+        email = value.get("email")
+        if not email or not isinstance(email, str):
+            raise ConfigError(
+                f"Account '{alias}' must have a string 'email' field."
+            )
+        provider = value.get("provider", "gmail")
+        if provider not in SUPPORTED_PROVIDERS:
+            raise ConfigError(
+                f"Account '{alias}' has unknown provider '{provider}'. "
+                f"Supported: {', '.join(SUPPORTED_PROVIDERS)}."
+            )
+        return {"email": email, "provider": provider}
+    raise ConfigError(
+        f"Account '{alias}' must be an email string or a "
+        "{'email': ..., 'provider': ...} object."
+    )
+
+
+def resolve_account(alias: str) -> dict:
+    """Return {'email': ..., 'provider': ...} for an alias. Raises if not found."""
     accounts = load_config()["accounts"]
     if alias not in accounts:
         raise ConfigError(
             f"Unknown account alias '{alias}'. Available: {', '.join(accounts)}"
         )
-    return accounts[alias]
+    return _normalize_account(alias, accounts[alias])
+
+
+def resolve_alias(alias: str) -> str:
+    """Turn 'personal' into 'you@gmail.com'. Raises if alias not found."""
+    return resolve_account(alias)["email"]
+
+
+def get_provider(alias: str) -> str:
+    """Return the provider ('gmail' or 'outlook') for an alias."""
+    return resolve_account(alias)["provider"]
