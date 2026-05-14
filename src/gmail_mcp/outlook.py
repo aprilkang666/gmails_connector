@@ -10,6 +10,7 @@ operators like 'is:unread' or 'after:2025/01/01' will not work here.
 """
 from __future__ import annotations
 
+import base64
 import json
 
 import httpx
@@ -226,3 +227,68 @@ def modify_labels(alias: str, message_id: str,
         + (", marked " + ("unread" if patch.get("isRead") is False else "read")
            if "isRead" in patch else "")
     )
+
+
+def _list_attachment_meta(alias: str, message_id: str) -> list[dict]:
+    resp = _request(
+        "GET", alias, f"/me/messages/{message_id}/attachments",
+        params={"$select": "id,name,contentType,size"},
+    )
+    return resp.json().get("value", [])
+
+
+def list_attachments(alias: str, message_id: str) -> str:
+    atts = _list_attachment_meta(alias, message_id)
+    if not atts:
+        return f"No attachments on message {message_id} in {alias}."
+    lines = [f"Attachments on {message_id} in {alias}:"]
+    for i, a in enumerate(atts):
+        lines.append(
+            f"  [{i}] {a.get('name', '')}\n"
+            f"      Type: {a.get('contentType', '')}  "
+            f"Size: {a.get('size', 0)} bytes"
+        )
+    lines.append("\nUse read_attachment with the index or filename.")
+    return "\n".join(lines)
+
+
+def get_attachment(alias: str, message_id: str, identifier: str) -> tuple[str, str, bytes]:
+    """Fetch one attachment by filename or index. Returns (filename, mime_type, raw_bytes)."""
+    atts = _list_attachment_meta(alias, message_id)
+    if not atts:
+        raise ValueError(f"No attachments on message {message_id} in {alias}.")
+
+    match = None
+    if isinstance(identifier, str) and identifier.isdigit():
+        idx = int(identifier)
+        if 0 <= idx < len(atts):
+            match = atts[idx]
+    if match is None:
+        match = next((a for a in atts if a.get("name") == identifier), None)
+    if match is None:
+        match = next(
+            (a for a in atts
+             if (a.get("name") or "").lower() == str(identifier).lower()),
+            None,
+        )
+    if match is None:
+        names = ", ".join(
+            f"[{i}] {a.get('name', '')}" for i, a in enumerate(atts)
+        )
+        raise ValueError(
+            f"No attachment matching {identifier!r} on {message_id} in {alias}. "
+            f"Available: {names}"
+        )
+
+    full = _request(
+        "GET", alias, f"/me/messages/{message_id}/attachments/{match['id']}"
+    ).json()
+    content_b64 = full.get("contentBytes")
+    if content_b64 is None:
+        raise ValueError(
+            f"Attachment {match.get('name')!r} is a "
+            f"{full.get('@odata.type', 'non-file attachment')} and has no "
+            f"downloadable bytes."
+        )
+    data = base64.b64decode(content_b64)
+    return match.get("name", ""), match.get("contentType", ""), data
