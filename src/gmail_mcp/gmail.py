@@ -179,32 +179,3 @@ def modify_labels(alias: str, message_id: str,
         body["removeLabelIds"] = remove
     svc.users().messages().modify(userId="me", id=message_id, body=body).execute()
     return f"✅ Modified labels on {message_id} in {alias}. Added: {add or []}, Removed: {remove or []}"
-
-
-def list_all_accounts() -> str:
-    """Return configured aliases + authorized status."""
-    aliases = config.load_config()["accounts"]
-    authorized = set(auth.list_authorized_emails())
-    lines = ["Configured accounts:"]
-    for alias, email in aliases.items():
-        status = "✅ authorized" if email in authorized else "❌ not authorized (run setup_auth add)"
-        lines.append(f"  {alias}: {email}  [{status}]")
-    return "\n".join(lines)
-
-
-def search_all(query: str, max_per_account: int = 10) -> str:
-    """Fan-out search across every configured, authorized account."""
-    aliases = config.load_config()["accounts"]
-    authorized = set(auth.list_authorized_emails())
-    out = []
-    for alias, email in aliases.items():
-        if email not in authorized:
-            out.append(f"=== {alias} ({email}): skipped (not authorized) ===\n")
-            continue
-        out.append(f"=== {alias} ({email}) ===")
-        try:
-            out.append(search(alias, query, max_per_account))
-        except Exception as e:
-            out.append(f"  Error: {e}")
-        out.append("")
-    return "\n".join(out)
