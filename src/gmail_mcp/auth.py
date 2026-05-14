@@ -41,6 +41,13 @@ def _ensure_db() -> sqlite3.Connection:
         )
         """
     )
+    # Idempotent migration: the 'provider' column was added when Outlook
+    # support landed. Existing rows predate it and are all Gmail.
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(accounts)")}
+    if "provider" not in cols:
+        conn.execute(
+            "ALTER TABLE accounts ADD COLUMN provider TEXT NOT NULL DEFAULT 'gmail'"
+        )
     conn.commit()
     return conn
 
@@ -91,7 +98,8 @@ def authorize_account(email_hint: str | None = None) -> str:
 
     conn = _ensure_db()
     conn.execute(
-        "INSERT OR REPLACE INTO accounts (email, token_json) VALUES (?, ?)",
+        "INSERT OR REPLACE INTO accounts (email, token_json, provider) "
+        "VALUES (?, ?, 'gmail')",
         (actual_email, creds.to_json()),
     )
     conn.commit()
@@ -134,14 +142,18 @@ def get_credentials(email: str) -> Credentials:
 
 def list_authorized_emails() -> list[str]:
     conn = _ensure_db()
-    rows = conn.execute("SELECT email FROM accounts ORDER BY email").fetchall()
+    rows = conn.execute(
+        "SELECT email FROM accounts WHERE provider = 'gmail' ORDER BY email"
+    ).fetchall()
     conn.close()
     return [r[0] for r in rows]
 
 
 def remove_account(email: str) -> bool:
     conn = _ensure_db()
-    cur = conn.execute("DELETE FROM accounts WHERE email = ?", (email,))
+    cur = conn.execute(
+        "DELETE FROM accounts WHERE email = ? AND provider = 'gmail'", (email,)
+    )
     conn.commit()
     conn.close()
     return cur.rowcount > 0
