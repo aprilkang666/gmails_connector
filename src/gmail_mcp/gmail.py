@@ -179,3 +179,83 @@ def modify_labels(alias: str, message_id: str,
         body["removeLabelIds"] = remove
     svc.users().messages().modify(userId="me", id=message_id, body=body).execute()
     return f"✅ Modified labels on {message_id} in {alias}. Added: {add or []}, Removed: {remove or []}"
+
+
+def _walk_attachment_parts(payload: dict) -> list[dict]:
+    """Collect every attachment part in a message payload's MIME tree."""
+    found: list[dict] = []
+
+    def walk(part: dict) -> None:
+        filename = part.get("filename") or ""
+        body = part.get("body", {})
+        att_id = body.get("attachmentId")
+        if filename and att_id:
+            found.append({
+                "filename": filename,
+                "mime_type": part.get("mimeType", ""),
+                "attachment_id": att_id,
+                "size": body.get("size", 0),
+            })
+        for sub in part.get("parts", []) or []:
+            walk(sub)
+
+    walk(payload)
+    return found
+
+
+def list_attachments(alias: str, message_id: str) -> str:
+    svc = _service(alias)
+    msg = svc.users().messages().get(
+        userId="me", id=message_id, format="full"
+    ).execute()
+    atts = _walk_attachment_parts(msg["payload"])
+    if not atts:
+        return f"No attachments on message {message_id} in {alias}."
+    lines = [f"Attachments on {message_id} in {alias}:"]
+    for i, a in enumerate(atts):
+        lines.append(
+            f"  [{i}] {a['filename']}\n"
+            f"      Type: {a['mime_type']}  Size: {a['size']} bytes"
+        )
+    lines.append("\nUse read_attachment with the index or filename.")
+    return "\n".join(lines)
+
+
+def get_attachment(alias: str, message_id: str, identifier: str) -> tuple[str, str, bytes]:
+    """Fetch one attachment by filename or index. Returns (filename, mime_type, raw_bytes).
+
+    Gmail's attachmentId is only valid within a single message fetch, so we
+    resolve the identifier against a fresh fetch and download in the same pass.
+    """
+    svc = _service(alias)
+    msg = svc.users().messages().get(
+        userId="me", id=message_id, format="full"
+    ).execute()
+    atts = _walk_attachment_parts(msg["payload"])
+    if not atts:
+        raise ValueError(f"No attachments on message {message_id} in {alias}.")
+
+    match = None
+    if isinstance(identifier, str) and identifier.isdigit():
+        idx = int(identifier)
+        if 0 <= idx < len(atts):
+            match = atts[idx]
+    if match is None:
+        match = next((a for a in atts if a["filename"] == identifier), None)
+    if match is None:
+        match = next(
+            (a for a in atts if a["filename"].lower() == str(identifier).lower()),
+            None,
+        )
+    if match is None:
+        names = ", ".join(f"[{i}] {a['filename']}" for i, a in enumerate(atts))
+        raise ValueError(
+            f"No attachment matching {identifier!r} on {message_id} in {alias}. "
+            f"Available: {names}"
+        )
+
+    att = svc.users().messages().attachments().get(
+        userId="me", messageId=message_id, id=match["attachment_id"]
+    ).execute()
+    data = base64.urlsafe_b64decode(att["data"])
+    return match["filename"], match["mime_type"], data
