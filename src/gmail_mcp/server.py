@@ -143,5 +143,35 @@ def modify_labels(account: str, message_id: str,
     return mail.modify_labels(account, message_id, add, remove)
 
 
+@mcp.tool()
+def list_attachments(account: str, message_id: str) -> str:
+    """List the attachments on a message: index, filename, type, size.
+
+    Use the index (e.g. '0') or the filename with read_attachment.
+
+    Args:
+        account: Account alias.
+        message_id: Message ID returned by search_emails.
+    """
+    return mail.list_attachments(account, message_id)
+
+
+@mcp.tool()
+def read_attachment(account: str, message_id: str, attachment: str) -> str:
+    """Read one attachment from a message.
+
+    PDFs are returned as extracted text. Plain-text and CSV files are
+    returned inline. Other binary files (images, spreadsheets) are saved to
+    ~/Downloads/gmail-mcp/ and the saved path is returned.
+
+    Args:
+        account: Account alias.
+        message_id: Message ID returned by search_emails.
+        attachment: The attachment's index (e.g. '0') or its filename, as
+            shown by list_attachments.
+    """
+    return mail.read_attachment(account, message_id, attachment)
+
+
 if __name__ == "__main__":
     mcp.run()

@@ -12,7 +12,7 @@ behave differently per provider.
 """
 from __future__ import annotations
 
-from . import auth, config, gmail, outlook, outlook_auth
+from . import attachments, auth, config, gmail, outlook, outlook_auth
 
 _BACKENDS = {"gmail": gmail, "outlook": outlook}
 
@@ -58,6 +58,38 @@ def modify_labels(alias: str, message_id: str,
                   add: list[str] | None = None,
                   remove: list[str] | None = None) -> str:
     return _backend(alias).modify_labels(alias, message_id, add, remove)
+
+
+def list_attachments(alias: str, message_id: str) -> str:
+    return _backend(alias).list_attachments(alias, message_id)
+
+
+def read_attachment(alias: str, message_id: str, identifier: str) -> str:
+    """Fetch an attachment and return readable content.
+
+    PDF → extracted text. text/CSV → decoded inline. Anything else → saved to
+    the sandbox (~/Downloads/gmail-mcp/) with the path returned.
+    """
+    filename, mime_type, data = _backend(alias).get_attachment(
+        alias, message_id, identifier
+    )
+    lower = filename.lower()
+
+    if mime_type == "application/pdf" or lower.endswith(".pdf"):
+        text = attachments.extract_pdf_text(data)
+        return f"📄 {filename} ({len(data)} bytes, PDF)\n\n{text}"
+
+    if mime_type.startswith("text/") or lower.endswith(
+        (".txt", ".csv", ".md", ".json", ".log")
+    ):
+        decoded = data.decode("utf-8", errors="replace")
+        return f"📄 {filename} ({len(data)} bytes, text)\n\n{decoded}"
+
+    path = attachments.save_to_sandbox(data, filename)
+    return (
+        f"📎 {filename} ({len(data)} bytes, {mime_type or 'unknown type'})\n"
+        f"Not a text or PDF type — saved to: {path}"
+    )
 
 
 # --- cross-account operations (provider-aware) ---
