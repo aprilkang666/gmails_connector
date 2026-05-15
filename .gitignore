@@ -6,6 +6,10 @@ credentials.json
 .env.local
 .env.*.local
 
+# Timestamped backups of config/credentials (created during local edits)
+*.bak
+*.bak.*
+
 # Python
 __pycache__/
 *.py[cod]
