@@ -63,8 +63,12 @@ def _recipient_list(comma_separated: str) -> list[dict]:
 
 
 def search(alias: str, query: str, max_results: int = 20) -> str:
+    # Graph wraps the $search value in double quotes. Inner double-quotes
+    # break the KQL parser (400 Bad Request), so strip them — KQL AND/OR/NOT
+    # operators and property:value terms still work without them.
+    clean_query = query.replace('"', " ").strip()
     params = {
-        "$search": f'"{query}"',
+        "$search": f'"{clean_query}"',
         "$top": str(max_results),
         "$select": "id,conversationId,subject,from,receivedDateTime,bodyPreview",
     }
