@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import sys
 
-from . import auth, config, outlook_auth
+from . import auth, config, imap_auth, outlook_auth
 
-_AUTH_BACKENDS = {"gmail": auth, "outlook": outlook_auth}
+_AUTH_BACKENDS = {"gmail": auth, "outlook": outlook_auth, "imap": imap_auth}
 
 
 def _backend(provider: str):
@@ -28,11 +28,11 @@ def cmd_add(alias: str) -> None:
     acct = config.resolve_account(alias)  # fails fast if alias unknown
     email_hint, provider = acct["email"], acct["provider"]
     backend = _backend(provider)
-    print(
-        f"Opening browser to authorize {email_hint} "
-        f"(alias: {alias}, provider: {provider})..."
-    )
-    print("Sign in with the matching account when the browser opens.")
+    print(f"Authorizing {email_hint} (alias: {alias}, provider: {provider})...")
+    if provider == "imap":
+        print("Paste the app password for this account when prompted.")
+    else:
+        print("Sign in with the matching account when the browser opens.")
     actual = backend.authorize_account(email_hint=email_hint)
     if actual.lower() != email_hint.lower():
         print(
@@ -54,6 +54,8 @@ def cmd_list() -> None:
         print(f"  {email}  [gmail]")
     for email in outlook_auth.list_authorized_emails():
         print(f"  {email}  [outlook]")
+    for email in imap_auth.list_authorized_emails():
+        print(f"  {email}  [imap]")
 
 
 def cmd_remove(alias: str) -> None:

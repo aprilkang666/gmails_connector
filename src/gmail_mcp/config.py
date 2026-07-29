@@ -2,33 +2,54 @@
 
 An account entry may be either:
   - a bare email string (legacy form), which is treated as a Gmail account, or
-  - an object {"email": ..., "provider": "gmail" | "outlook"}.
+  - an object {"email": ..., "provider": "gmail" | "outlook" | "imap"}.
 
 This keeps existing single-provider configs working unchanged while allowing
-per-account providers for mixed Gmail / Microsoft 365 setups.
+per-account providers for mixed Gmail / Microsoft 365 / IMAP setups.
 """
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.json"
+CONFIG_ENV_VAR = "GMAIL_MCP_CONFIG"
+USER_CONFIG_PATH = Path.home() / ".gmail-mcp" / "config.json"
+REPO_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.json"
 
-SUPPORTED_PROVIDERS = ("gmail", "outlook")
+SUPPORTED_PROVIDERS = ("gmail", "outlook", "imap")
 
 
 class ConfigError(Exception):
     """Raised when config is missing or malformed."""
 
 
+def config_path() -> Path:
+    """Resolve which config.json to read.
+
+    Order: $GMAIL_MCP_CONFIG, then ~/.gmail-mcp/config.json, then the
+    repo-local config.json. The repo-local fallback keeps existing clones
+    working; the home-directory location is what makes an installed copy
+    (pip/uvx) usable, since there is no repo directory in that case.
+    """
+    override = os.environ.get(CONFIG_ENV_VAR)
+    if override:
+        return Path(override).expanduser()
+    if USER_CONFIG_PATH.exists():
+        return USER_CONFIG_PATH
+    return REPO_CONFIG_PATH
+
+
 def load_config() -> dict:
-    if not CONFIG_PATH.exists():
+    path = config_path()
+    if not path.exists():
         raise ConfigError(
-            f"config.json not found at {CONFIG_PATH}. "
-            "Copy config.json.example to config.json and fill in your accounts."
+            f"config.json not found. Create it at {USER_CONFIG_PATH} "
+            f"(or set {CONFIG_ENV_VAR} to its path). "
+            "See config.json.example for the format."
         )
-    with CONFIG_PATH.open() as f:
+    with path.open() as f:
         data = json.load(f)
     if "accounts" not in data or not isinstance(data["accounts"], dict):
         raise ConfigError("config.json must have an 'accounts' object mapping aliases to emails.")
@@ -59,7 +80,11 @@ def _normalize_account(alias: str, value: object) -> dict:
                 f"Account '{alias}' has unknown provider '{provider}'. "
                 f"Supported: {', '.join(SUPPORTED_PROVIDERS)}."
             )
-        return {"email": email, "provider": provider}
+        result = {"email": email, "provider": provider}
+        for key in ("preset", "imap_host", "imap_port", "smtp_host", "smtp_port"):
+            if key in value:
+                result[key] = value[key]
+        return result
     raise ConfigError(
         f"Account '{alias}' must be an email string or a "
         "{'email': ..., 'provider': ...} object."
@@ -82,5 +107,5 @@ def resolve_alias(alias: str) -> str:
 
 
 def get_provider(alias: str) -> str:
-    """Return the provider ('gmail' or 'outlook') for an alias."""
+    """Return the provider ('gmail', 'outlook' or 'imap') for an alias."""
     return resolve_account(alias)["provider"]
