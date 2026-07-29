@@ -45,8 +45,9 @@ def cmd_add(alias: str) -> None:
 
 
 def cmd_list() -> None:
-    print("Accounts in config.json:")
-    for alias in config.list_account_aliases():
+    aliases = config.list_account_aliases()
+    print(f"Accounts in {config.config_path()}:")
+    for alias in aliases:
         acct = config.resolve_account(alias)
         print(f"  {alias}: {acct['email']}  [{acct['provider']}]")
     print("\nAuthorized (tokens stored):")
@@ -73,15 +74,29 @@ def main() -> None:
         sys.exit(1)
 
     cmd, *rest = args
-    if cmd == "add" and len(rest) == 1:
-        cmd_add(rest[0])
-    elif cmd == "list":
-        cmd_list()
-    elif cmd == "remove" and len(rest) == 1:
-        cmd_remove(rest[0])
-    else:
-        print(__doc__)
+    try:
+        if cmd == "add" and len(rest) == 1:
+            cmd_add(rest[0])
+        elif cmd == "list":
+            cmd_list()
+        elif cmd == "remove" and len(rest) == 1:
+            cmd_remove(rest[0])
+        else:
+            print(__doc__)
+            sys.exit(1)
+    except (
+        config.ConfigError,
+        auth.AuthError,
+        outlook_auth.AuthError,
+        imap_auth.AuthError,
+    ) as exc:
+        # Setup errors are almost always a missing or mistyped config entry,
+        # so show the message rather than a traceback.
+        print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nCancelled.", file=sys.stderr)
+        sys.exit(130)
 
 
 if __name__ == "__main__":

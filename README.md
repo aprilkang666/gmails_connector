@@ -20,6 +20,8 @@ Two ways to connect an account:
 
 ### 1. Install
 
+Needs [uv](https://docs.astral.sh/uv/getting-started/installation/). Python 3.11+ is required, and `uv` fetches it for you if your system Python is older.
+
 ```bash
 git clone https://github.com/aprilkang666/gmails_connector.git
 cd gmails_connector
