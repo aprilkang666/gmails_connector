@@ -12,9 +12,9 @@ behave differently per provider.
 """
 from __future__ import annotations
 
-from . import attachments, auth, config, gmail, outlook, outlook_auth
+from . import attachments, auth, config, gmail, imap_auth, imap_backend, outlook, outlook_auth
 
-_BACKENDS = {"gmail": gmail, "outlook": outlook}
+_BACKENDS = {"gmail": gmail, "outlook": outlook, "imap": imap_backend}
 
 
 def _backend(alias: str):
@@ -98,6 +98,7 @@ def _authorized_emails_by_provider() -> dict[str, set[str]]:
     return {
         "gmail": set(auth.list_authorized_emails()),
         "outlook": set(outlook_auth.list_authorized_emails()),
+        "imap": set(imap_auth.list_authorized_emails()),
     }
 
 

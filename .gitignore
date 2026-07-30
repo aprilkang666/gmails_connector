@@ -10,6 +10,10 @@ credentials.json
 *.bak
 *.bak.*
 
+# Personal scripts and their state — not part of the connector
+wimbledon_monitor.py
+.wimbledon_*
+
 # Python
 __pycache__/
 *.py[cod]

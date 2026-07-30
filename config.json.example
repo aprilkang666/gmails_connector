@@ -1,6 +1,19 @@
 {
   "accounts": {
-    "personal": "you@gmail.com",
-    "work": { "email": "you@company.com", "provider": "outlook" }
+    "personal": { "email": "you@gmail.com", "provider": "imap" },
+    "icloud": { "email": "you@icloud.com", "provider": "imap" },
+    "custom_domain": {
+      "email": "you@your-company.com",
+      "provider": "imap",
+      "preset": "alibaba"
+    },
+    "self_hosted": {
+      "email": "you@example.com",
+      "provider": "imap",
+      "imap_host": "mail.example.com",
+      "smtp_host": "mail.example.com"
+    },
+    "gmail_via_oauth": "you@gmail.com",
+    "work_outlook": { "email": "you@company.com", "provider": "outlook" }
   }
 }

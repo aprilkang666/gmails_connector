@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import sys
 
-from . import auth, config, outlook_auth
+from . import auth, config, imap_auth, outlook_auth
 
-_AUTH_BACKENDS = {"gmail": auth, "outlook": outlook_auth}
+_AUTH_BACKENDS = {"gmail": auth, "outlook": outlook_auth, "imap": imap_auth}
 
 
 def _backend(provider: str):
@@ -28,11 +28,11 @@ def cmd_add(alias: str) -> None:
     acct = config.resolve_account(alias)  # fails fast if alias unknown
     email_hint, provider = acct["email"], acct["provider"]
     backend = _backend(provider)
-    print(
-        f"Opening browser to authorize {email_hint} "
-        f"(alias: {alias}, provider: {provider})..."
-    )
-    print("Sign in with the matching account when the browser opens.")
+    print(f"Authorizing {email_hint} (alias: {alias}, provider: {provider})...")
+    if provider == "imap":
+        print("Paste the app password for this account when prompted.")
+    else:
+        print("Sign in with the matching account when the browser opens.")
     actual = backend.authorize_account(email_hint=email_hint)
     if actual.lower() != email_hint.lower():
         print(
@@ -45,8 +45,9 @@ def cmd_add(alias: str) -> None:
 
 
 def cmd_list() -> None:
-    print("Accounts in config.json:")
-    for alias in config.list_account_aliases():
+    aliases = config.list_account_aliases()
+    print(f"Accounts in {config.config_path()}:")
+    for alias in aliases:
         acct = config.resolve_account(alias)
         print(f"  {alias}: {acct['email']}  [{acct['provider']}]")
     print("\nAuthorized (tokens stored):")
@@ -54,6 +55,8 @@ def cmd_list() -> None:
         print(f"  {email}  [gmail]")
     for email in outlook_auth.list_authorized_emails():
         print(f"  {email}  [outlook]")
+    for email in imap_auth.list_authorized_emails():
+        print(f"  {email}  [imap]")
 
 
 def cmd_remove(alias: str) -> None:
@@ -71,15 +74,29 @@ def main() -> None:
         sys.exit(1)
 
     cmd, *rest = args
-    if cmd == "add" and len(rest) == 1:
-        cmd_add(rest[0])
-    elif cmd == "list":
-        cmd_list()
-    elif cmd == "remove" and len(rest) == 1:
-        cmd_remove(rest[0])
-    else:
-        print(__doc__)
+    try:
+        if cmd == "add" and len(rest) == 1:
+            cmd_add(rest[0])
+        elif cmd == "list":
+            cmd_list()
+        elif cmd == "remove" and len(rest) == 1:
+            cmd_remove(rest[0])
+        else:
+            print(__doc__)
+            sys.exit(1)
+    except (
+        config.ConfigError,
+        auth.AuthError,
+        outlook_auth.AuthError,
+        imap_auth.AuthError,
+    ) as exc:
+        # Setup errors are almost always a missing or mistyped config entry,
+        # so show the message rather than a traceback.
+        print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nCancelled.", file=sys.stderr)
+        sys.exit(130)
 
 
 if __name__ == "__main__":
