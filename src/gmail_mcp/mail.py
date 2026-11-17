@@ -64,8 +64,31 @@ def list_attachments(alias: str, message_id: str) -> str:
     return _backend(alias).list_attachments(alias, message_id)
 
 
+# Image types a client can render inline, mapped to Image() format names.
+_INLINE_IMAGE_FORMATS = {
+    "image/png": "png", "image/jpeg": "jpeg", "image/jpg": "jpeg",
+    "image/gif": "gif", "image/webp": "webp",
+}
+# Keep inline images well under typical MCP / model payload limits.
+_MAX_INLINE_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+def _read_text_like(filename: str, mime_type: str, data: bytes) -> str | None:
+    """Return readable text for PDF / text attachments, else None."""
+    lower = filename.lower()
+    if mime_type == "application/pdf" or lower.endswith(".pdf"):
+        text = attachments.extract_pdf_text(data)
+        return f"📄 {filename} ({len(data)} bytes, PDF)\n\n{text}"
+    if mime_type.startswith("text/") or lower.endswith(
+        (".txt", ".csv", ".md", ".json", ".log")
+    ):
+        decoded = data.decode("utf-8", errors="replace")
+        return f"📄 {filename} ({len(data)} bytes, text)\n\n{decoded}"
+    return None
+
+
 def read_attachment(alias: str, message_id: str, identifier: str) -> str:
-    """Fetch an attachment and return readable content.
+    """Fetch an attachment and return readable content (local mode).
 
     PDF → extracted text. text/CSV → decoded inline. Anything else → saved to
     the sandbox (~/Downloads/gmail-mcp/) with the path returned.
@@ -73,22 +96,46 @@ def read_attachment(alias: str, message_id: str, identifier: str) -> str:
     filename, mime_type, data = _backend(alias).get_attachment(
         alias, message_id, identifier
     )
-    lower = filename.lower()
-
-    if mime_type == "application/pdf" or lower.endswith(".pdf"):
-        text = attachments.extract_pdf_text(data)
-        return f"📄 {filename} ({len(data)} bytes, PDF)\n\n{text}"
-
-    if mime_type.startswith("text/") or lower.endswith(
-        (".txt", ".csv", ".md", ".json", ".log")
-    ):
-        decoded = data.decode("utf-8", errors="replace")
-        return f"📄 {filename} ({len(data)} bytes, text)\n\n{decoded}"
+    text = _read_text_like(filename, mime_type, data)
+    if text is not None:
+        return text
 
     path = attachments.save_to_sandbox(data, filename)
     return (
         f"📎 {filename} ({len(data)} bytes, {mime_type or 'unknown type'})\n"
         f"Not a text or PDF type — saved to: {path}"
+    )
+
+
+def read_attachment_inline(
+    alias: str, message_id: str, identifier: str
+) -> str | tuple[str, bytes, str]:
+    """Fetch an attachment without touching the server's disk (remote mode).
+
+    Returns text for PDF / text files, (caption, bytes, format) for images
+    small enough to return inline, and a description for anything else.
+    """
+    filename, mime_type, data = _backend(alias).get_attachment(
+        alias, message_id, identifier
+    )
+    text = _read_text_like(filename, mime_type, data)
+    if text is not None:
+        return text
+
+    kind = mime_type or "unknown type"
+    fmt = _INLINE_IMAGE_FORMATS.get((mime_type or "").lower())
+    if fmt and len(data) <= _MAX_INLINE_IMAGE_BYTES:
+        return (f"🖼️ {filename} ({len(data)} bytes, {kind})", data, fmt)
+    if fmt:
+        return (
+            f"📎 {filename} ({len(data)} bytes, {kind})\n"
+            f"Image is larger than {_MAX_INLINE_IMAGE_BYTES // (1024 * 1024)} MB "
+            "and can't be returned inline. Open it in the mail client."
+        )
+    return (
+        f"📎 {filename} ({len(data)} bytes, {kind})\n"
+        "This file type can't be read through the remote connector. "
+        "Open it in the mail client."
     )
 
 
