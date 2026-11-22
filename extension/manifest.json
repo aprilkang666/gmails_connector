@@ -1,0 +1,90 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "gmail-mcp",
+  "display_name": "Gmail + Outlook (multi-account)",
+  "version": "0.1.0",
+  "description": "Search, read, and draft email across multiple Gmail and Outlook (Microsoft 365) accounts at once, including attachments.",
+  "long_description": "A local MCP server for people with more than one mailbox. Mix any number of Gmail and Outlook / Microsoft 365 accounts, each addressed by a short alias (e.g. 'personal', 'work').\n\n- **Multi-account**: search one account or all of them in a single call.\n- **Gmail + Outlook together**: each alias picks its provider; Gmail query syntax and Microsoft Graph KQL are both supported.\n- **Attachments**: list attachments and read PDFs and text files inline; other files are saved to ~/Downloads/gmail-mcp/.\n- **Draft-then-send**: Claude only creates drafts; sending is a separate, explicit step.\n- **Local tokens**: OAuth tokens stay on this computer in ~/.gmail-mcp/tokens.db.\n\nAfter installing, create ~/.gmail-mcp/config.json listing your accounts, then ask Claude to run `setup_status` and `authorize_account` for each alias. You need your own Google OAuth client and/or Azure app registration (see the project README).",
+  "author": {
+    "name": "aprilkang666",
+    "url": "https://github.com/aprilkang666"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aprilkang666/gmails_connector"
+  },
+  "homepage": "https://github.com/aprilkang666/gmails_connector",
+  "documentation": "https://github.com/aprilkang666/gmails_connector#claude-desktop-extension",
+  "support": "https://github.com/aprilkang666/gmails_connector/issues",
+  "server": {
+    "type": "uv",
+    "entry_point": "src/gmail_mcp/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--directory", "${__dirname}", "python", "-m", "gmail_mcp.server"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "${user_config.google_client_id}",
+        "GOOGLE_CLIENT_SECRET": "${user_config.google_client_secret}",
+        "MICROSOFT_CLIENT_ID": "${user_config.microsoft_client_id}",
+        "MICROSOFT_TENANT_ID": "${user_config.microsoft_tenant_id}",
+        "GMAIL_MCP_CONFIG": "${user_config.config_path}"
+      }
+    }
+  },
+  "tools": [
+    {"name": "list_accounts", "description": "List configured mail accounts, their provider (Gmail or Outlook), and auth status."},
+    {"name": "search_emails", "description": "Search one account using Gmail query syntax or Microsoft Graph KQL."},
+    {"name": "search_all_accounts", "description": "Run the same search across every authorized account."},
+    {"name": "read_email", "description": "Read the full body of a message."},
+    {"name": "read_thread", "description": "Read an entire email thread."},
+    {"name": "create_draft", "description": "Create a draft in a chosen account. Does not send."},
+    {"name": "send_draft", "description": "Send a previously created draft after the user confirms."},
+    {"name": "list_labels", "description": "List labels / folders in an account."},
+    {"name": "modify_labels", "description": "Add or remove labels on a message (archive, mark read, star, trash)."},
+    {"name": "list_attachments", "description": "List the attachments on a message."},
+    {"name": "read_attachment", "description": "Read an attachment: PDF and text inline, other files saved to ~/Downloads/gmail-mcp/."},
+    {"name": "setup_status", "description": "Show config file location, which accounts are authorized, and missing settings."},
+    {"name": "authorize_account", "description": "Open the browser sign-in flow for a configured account alias."}
+  ],
+  "keywords": ["gmail", "outlook", "microsoft-365", "email", "multi-account", "attachments"],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.11"
+    }
+  },
+  "user_config": {
+    "google_client_id": {
+      "type": "string",
+      "title": "Google OAuth Client ID",
+      "description": "Desktop-app OAuth client ID from Google Cloud Console. Needed only for Gmail accounts.",
+      "required": false
+    },
+    "google_client_secret": {
+      "type": "string",
+      "title": "Google OAuth Client Secret",
+      "description": "Client secret for the Google OAuth client above. Needed only for Gmail accounts.",
+      "required": false,
+      "sensitive": true
+    },
+    "microsoft_client_id": {
+      "type": "string",
+      "title": "Microsoft Application (client) ID",
+      "description": "Azure app registration client ID (public client flows enabled). Needed only for Outlook accounts.",
+      "required": false
+    },
+    "microsoft_tenant_id": {
+      "type": "string",
+      "title": "Microsoft Directory (tenant) ID",
+      "description": "Your tenant ID, or 'common' (any Microsoft account) / 'consumers' (personal outlook.com). Needed only for Outlook accounts.",
+      "required": false
+    },
+    "config_path": {
+      "type": "file",
+      "title": "Accounts config file (optional)",
+      "description": "Path to a config.json listing your account aliases. Leave empty to use ~/.gmail-mcp/config.json.",
+      "required": false
+    }
+  }
+}

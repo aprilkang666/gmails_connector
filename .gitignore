@@ -22,3 +22,6 @@ build/
 .vscode/
 .idea/
 .DS_Store
+
+# Claude Desktop Extension build output
+*.mcpb

@@ -143,3 +143,38 @@ Ask Claude Code things like:
 - **Google refresh tokens expire after 7 days**: you're in Testing mode. Either re-run `setup_auth add` weekly, or publish the app (unverified is fine) under the Google Auth Platform → Audience tab.
 - **`GOOGLE_CLIENT_ID ... must be set`** or **`MICROSOFT_CLIENT_ID ... must be set`**: the env vars aren't reaching the server. Check the `env` block in your Claude Code config.
 - **Outlook sign-in fails with a tenant / `AADSTS` error**: your `MICROSOFT_TENANT_ID` doesn't match the account type. Try `common` for any Microsoft account or `consumers` for personal outlook.com / hotmail.com addresses.
+
+## Claude Desktop Extension
+
+The server can also be installed in Claude Desktop as a one-click extension (`.mcpb` bundle), no terminal needed for day-to-day use.
+
+### Install
+
+1. Download `gmail-mcp-<version>.mcpb` from the [Releases](https://github.com/aprilkang666/gmails_connector/releases) page.
+2. Double-click it (or drag it onto Claude Desktop → **Settings → Extensions**) and click **Install**.
+3. In the install dialog, fill in the OAuth credentials for the providers you use (all fields are optional; leave a provider's fields blank if you don't use it):
+   - **Google OAuth Client ID / Secret** — from step 3 above (Gmail).
+   - **Microsoft Application (client) ID / Directory (tenant) ID** — from step 3 above (Outlook).
+   - **Accounts config file** — optional; defaults to `~/.gmail-mcp/config.json`.
+4. Create `~/.gmail-mcp/config.json` listing your accounts (same format as step 2 above).
+
+The extension uses Claude Desktop's built-in `uv` runtime, which installs Python and the dependencies on first launch.
+
+### Authorize accounts from chat
+
+Instead of running `setup_auth` in a terminal, ask Claude:
+
+- "Run `setup_status`" — shows which config file is in use, which accounts are authorized, and which settings are missing.
+- "Authorize my `work` account" — calls `authorize_account`, which opens the provider's sign-in page in your browser. Sign in with the matching account; the call returns once you approve.
+
+Tokens are stored in `~/.gmail-mcp/tokens.db`, shared with the CLI setup, so accounts already authorized via `setup_auth` work in the extension too.
+
+### Build the bundle yourself
+
+Requires Node.js (for `npx`) and Python 3.11+:
+
+```bash
+scripts/build_mcpb.sh          # → dist/gmail-mcp-<version>.mcpb
+```
+
+The script stages `extension/manifest.json` with `pyproject.toml`, `uv.lock` and `src/`, runs `mcpb validate`, then `mcpb pack`. Pushing a `v*` tag runs the same script in GitHub Actions and attaches the bundle to the release.
