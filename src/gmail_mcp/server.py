@@ -173,5 +173,9 @@ def read_attachment(account: str, message_id: str, attachment: str) -> str:
     return mail.read_attachment(account, message_id, attachment)
 
 
-if __name__ == "__main__":
+def main() -> None:
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

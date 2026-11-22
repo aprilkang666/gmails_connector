@@ -4,9 +4,12 @@ Routes to the Gmail or Outlook (Microsoft 365) auth flow based on each
 alias's provider in config.json.
 
 Usage:
-    uv run python -m gmail_mcp.setup_auth add <alias>
-    uv run python -m gmail_mcp.setup_auth list
-    uv run python -m gmail_mcp.setup_auth remove <alias>
+    gmail-mcp-auth init            create ~/.gmail-mcp/config.json from an example
+    gmail-mcp-auth add <alias>     authorize an account listed in config.json
+    gmail-mcp-auth list            show configured and authorized accounts
+    gmail-mcp-auth remove <alias>  delete stored credentials for an alias
+
+`python -m gmail_mcp.setup_auth <command>` works the same way.
 """
 from __future__ import annotations
 
@@ -22,6 +25,15 @@ def _backend(provider: str):
     if backend is None:
         raise config.ConfigError(f"Unsupported provider '{provider}'.")
     return backend
+
+
+def cmd_init() -> None:
+    path = config.DEFAULT_CONFIG_PATH
+    if config.write_example_config(path):
+        print(f"Wrote example config to {path}")
+        print("Edit it to list your accounts, then run `gmail-mcp-auth add <alias>`.")
+    else:
+        print(f"Config already exists at {path}; left it unchanged.")
 
 
 def cmd_add(alias: str) -> None:
@@ -45,7 +57,7 @@ def cmd_add(alias: str) -> None:
 
 
 def cmd_list() -> None:
-    print("Accounts in config.json:")
+    print(f"Accounts in {config.find_config_path()}:")
     for alias in config.list_account_aliases():
         acct = config.resolve_account(alias)
         print(f"  {alias}: {acct['email']}  [{acct['provider']}]")
@@ -71,14 +83,20 @@ def main() -> None:
         sys.exit(1)
 
     cmd, *rest = args
-    if cmd == "add" and len(rest) == 1:
-        cmd_add(rest[0])
-    elif cmd == "list":
-        cmd_list()
-    elif cmd == "remove" and len(rest) == 1:
-        cmd_remove(rest[0])
-    else:
-        print(__doc__)
+    try:
+        if cmd == "init" and not rest:
+            cmd_init()
+        elif cmd == "add" and len(rest) == 1:
+            cmd_add(rest[0])
+        elif cmd == "list" and not rest:
+            cmd_list()
+        elif cmd == "remove" and len(rest) == 1:
+            cmd_remove(rest[0])
+        else:
+            print(__doc__)
+            sys.exit(1)
+    except config.ConfigError as e:
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
