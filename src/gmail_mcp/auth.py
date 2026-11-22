@@ -14,7 +14,6 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-
 # Minimum scopes for our toolset. Adjust if you add/remove tools.
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",

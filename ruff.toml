@@ -1,0 +1,20 @@
+# Lint config. Kept in a standalone file so pyproject.toml stays untouched
+# by tooling changes. `ruff format` is intentionally NOT enforced in CI yet:
+# it would reformat most existing modules and conflict with in-flight PRs.
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[lint]
+# Pyflakes + pycodestyle errors/warnings + import sorting + a few bug catchers.
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E501",  # long lines are left to the (future) formatter
+]
+
+[lint.isort]
+known-first-party = ["gmail_mcp"]
+
+[lint.per-file-ignores]
+# config.py is being reworked in a parallel PR; don't touch its imports here.
+"src/gmail_mcp/config.py" = ["I001"]
