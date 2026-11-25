@@ -80,16 +80,25 @@ def test_safe_filename(name, expected):
     assert attachments.safe_filename(name) == expected
 
 
-@pytest.mark.xfail(
-    reason=(
-        "BUG: safe_filename strips leading '_' after replacing non-ASCII chars, "
-        "so an all-non-ASCII stem loses its name AND extension separator: "
-        "'請求書.pdf' -> 'pdf', saved without a .pdf extension."
-    ),
-    strict=True,
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("請求書.pdf", "attachment.pdf"),
+        ("日本.txt", "attachment.txt"),
+        ("請求書2026.pdf", "2026.pdf"),
+        ("報告 final.docx", "final.docx"),
+        ("archive.tar.gz", "archive.tar.gz"),
+        ("file.", "file"),
+        ("weird.p$d f", "weird.pdf"),
+    ],
 )
-def test_safe_filename_non_ascii_keeps_extension():
-    assert attachments.safe_filename("請求書.pdf").endswith(".pdf")
+def test_safe_filename_non_ascii_keeps_extension(name, expected):
+    """Previously '請求書.pdf' became 'pdf' (no extension)."""
+    assert attachments.safe_filename(name) == expected
+
+
+def test_save_non_ascii_pdf_keeps_extension(isolated_sandbox):
+    assert attachments.save_to_sandbox(b"%PDF", "請求書.pdf").suffix == ".pdf"
 
 
 def test_save_to_sandbox_creates_dir_and_never_clobbers(isolated_sandbox):

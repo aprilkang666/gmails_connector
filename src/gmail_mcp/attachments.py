@@ -30,9 +30,20 @@ def safe_filename(name: str) -> str:
     """
     # Basename only — drops 'a/b/../c' and Windows-style paths.
     name = name.replace("\\", "/").split("/")[-1]
+    # Sanitise stem and extension separately so a stem made entirely of
+    # non-ASCII characters (e.g. '請求書.pdf') keeps its extension instead of
+    # collapsing to just 'pdf'.
+    stem, _, ext = name.rpartition(".")
+    if not stem:  # no dot at all, or a dotfile like '.hidden'
+        stem, ext = name.lstrip("."), ""
     # Conservative whitelist; collapse everything else to underscores.
-    name = re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._")
-    return name or "attachment"
+    clean_stem = re.sub(r"[^A-Za-z0-9._-]", "_", stem).lstrip("._").rstrip(".")
+    clean_ext = re.sub(r"[^A-Za-z0-9]", "", ext)
+    if not clean_stem:
+        if not stem:
+            return "attachment"
+        clean_stem = "attachment"  # had a name, but nothing safe survived
+    return f"{clean_stem}.{clean_ext}" if clean_ext else clean_stem
 
 
 def save_to_sandbox(data: bytes, name: str) -> Path:
