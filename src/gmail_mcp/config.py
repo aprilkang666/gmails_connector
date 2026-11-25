@@ -10,10 +10,19 @@ per-account providers for mixed Gmail / Microsoft 365 setups.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.json"
+# Both paths can be overridden with env vars, e.g. when the server runs in a
+# container with config and tokens on a mounted volume.
+CONFIG_PATH = Path(
+    os.environ.get("GMAIL_MCP_CONFIG")
+    or Path(__file__).resolve().parent.parent.parent / "config.json"
+)
+
+# Where tokens.db (and, for the remote connector, connector.db) live.
+DATA_DIR = Path(os.environ.get("GMAIL_MCP_HOME") or Path.home() / ".gmail-mcp")
 
 SUPPORTED_PROVIDERS = ("gmail", "outlook")
 
