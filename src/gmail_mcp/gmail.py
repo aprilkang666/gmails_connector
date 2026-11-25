@@ -62,7 +62,25 @@ def _decode_body(payload: dict) -> str:
                 return found
         return None
 
-    return walk_html(payload) or "(no readable body)"
+    html_text = walk_html(payload)
+    if html_text:
+        return html_text
+
+    # No HTML alternative either: a short text/plain part is the real body
+    # (e.g. a one-line "Thanks!" reply), so return it rather than nothing.
+    def walk_any_plain(part: dict) -> str | None:
+        data = part.get("body", {}).get("data")
+        if part.get("mimeType", "") == "text/plain" and data:
+            decoded = base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+            if decoded.strip():
+                return decoded
+        for sub in part.get("parts", []) or []:
+            found = walk_any_plain(sub)
+            if found:
+                return found
+        return None
+
+    return walk_any_plain(payload) or "(no readable body)"
 
 
 def _header(headers: list[dict], name: str) -> str:

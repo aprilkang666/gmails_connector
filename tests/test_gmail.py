@@ -83,16 +83,29 @@ def test_decode_no_body():
     assert gmail._decode_body(payload) == "(no readable body)"
 
 
-@pytest.mark.xfail(
-    reason=(
-        "BUG (from 571f6dc): MIN_PLAIN_CHARS=50 also drops genuinely short "
-        "plain-text-only emails (e.g. 'Thanks!') when there is no HTML "
-        "alternative; the user gets '(no readable body)' instead of the text."
-    ),
-    strict=True,
-)
 def test_decode_short_plain_only_message_is_kept():
+    """Previously returned '(no readable body)' because of MIN_PLAIN_CHARS."""
     assert gmail._decode_body(part("text/plain", "Thanks!")) == "Thanks!"
+
+
+def test_decode_short_plain_in_multipart_without_html():
+    payload = part(
+        "multipart/mixed",
+        parts=[
+            part("text/plain", "  "),
+            part("text/plain", "See attached."),
+            part("application/pdf", filename="a.pdf", attachment_id="A1", size=10),
+        ],
+    )
+    assert gmail._decode_body(payload) == "See attached."
+
+
+def test_decode_html_still_beats_short_plain():
+    payload = part(
+        "multipart/alternative",
+        parts=[part("text/plain", "View in browser"), part("text/html", HTML)],
+    )
+    assert "Real HTML body" in gmail._decode_body(payload)
 
 
 # --- fake service -----------------------------------------------------------
