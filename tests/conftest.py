@@ -25,12 +25,24 @@ def fake_config(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def restore_config_module():
+    """Some tests importlib.reload(config) after setting GMAIL_MCP_* env vars.
+    Reload rewrites the module's globals in place, which would leak tmp paths
+    (and fresh class objects) into later tests, so snapshot and restore them."""
+    saved = dict(vars(config))
+    yield
+    vars(config).clear()
+    vars(config).update(saved)
+
+
+@pytest.fixture(autouse=True)
 def isolated_token_db(tmp_path, monkeypatch):
     """Point both auth modules at a throwaway SQLite file so no test can ever
     read or write ~/.gmail-mcp/tokens.db."""
     db = tmp_path / "gmail-mcp" / "tokens.db"
     monkeypatch.setattr(auth, "DB_PATH", db)
     monkeypatch.setattr(outlook_auth, "DB_PATH", db)
+    monkeypatch.setattr(config, "DATA_DIR", db.parent)
     return db
 
 

@@ -8,11 +8,13 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+
+from . import config
+
 
 # Minimum scopes for our toolset. Adjust if you add/remove tools.
 SCOPES = [
@@ -22,7 +24,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",     # labels, archive, mark read
 ]
 
-DB_PATH = Path.home() / ".gmail-mcp" / "tokens.db"
+DB_PATH = config.DATA_DIR / "tokens.db"
 
 
 class AuthError(Exception):

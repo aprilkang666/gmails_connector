@@ -18,3 +18,5 @@ known-first-party = ["gmail_mcp"]
 [lint.per-file-ignores]
 # config.py is being reworked in a parallel PR; don't touch its imports here.
 "src/gmail_mcp/config.py" = ["I001"]
+# Import layout in these files comes from PR #5; leave it as merged.
+"src/gmail_mcp/auth.py" = ["I001"]

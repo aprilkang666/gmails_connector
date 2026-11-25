@@ -146,3 +146,38 @@ def test_msal_app_requires_env(monkeypatch):
     monkeypatch.delenv("MICROSOFT_TENANT_ID", raising=False)
     with pytest.raises(outlook_auth.AuthError, match="MICROSOFT_CLIENT_ID"):
         outlook_auth._msal_app()
+
+
+def test_token_db_follows_gmail_mcp_home(tmp_path):
+    """Both auth modules derive DB_PATH from config.DATA_DIR, which honours
+    GMAIL_MCP_HOME. Checked in a fresh interpreter so module-level paths are
+    computed from the env var rather than the test's monkeypatches."""
+    import os
+    import subprocess
+    import sys
+
+    code = (
+        "from gmail_mcp import auth, config, outlook_auth;"
+        "print(config.DATA_DIR); print(auth.DB_PATH); print(outlook_auth.DB_PATH)"
+    )
+    env = {**os.environ, "GMAIL_MCP_HOME": str(tmp_path / "home")}
+    out = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
+    ).stdout.split()
+    home = tmp_path / "home"
+    assert out == [str(home), str(home / "tokens.db"), str(home / "tokens.db")]
+
+
+def test_token_db_default_location(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    code = "from gmail_mcp import auth; print(auth.DB_PATH)"
+    env = {k: v for k, v in os.environ.items() if k != "GMAIL_MCP_HOME"}
+    env["HOME"] = str(tmp_path)
+    out = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert Path(out) == tmp_path / ".gmail-mcp" / "tokens.db"

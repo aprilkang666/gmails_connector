@@ -1,7 +1,7 @@
 [project]
 name = "gmail-mcp"
 version = "0.1.0"
-description = "Local MCP server for managing multiple Gmail accounts from Claude Code"
+description = "MCP server for multiple Gmail and Outlook accounts: local for Claude Code, or remote as a claude.ai custom connector"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.2.0",
@@ -12,6 +12,9 @@ dependencies = [
     "httpx>=0.27.0",
     "pypdf>=5.0.0",
 ]
+
+[project.scripts]
+gmail-mcp-remote = "gmail_mcp.remote:main"
 
 [build-system]
 requires = ["hatchling"]
