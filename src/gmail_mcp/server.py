@@ -1,6 +1,7 @@
 """MCP server entry point.
 
 Local (stdio, for Claude Code):   uv run python -m gmail_mcp.server
+Local (stdio, Claude Desktop extension): python -m gmail_mcp.desktop
 Remote (HTTPS, claude.ai custom connector): uv run python -m gmail_mcp.remote
 
 Exposes Gmail and Microsoft 365 / Outlook tools. Every tool takes an
@@ -14,11 +15,15 @@ OAuth (see remote.py).
 """
 from __future__ import annotations
 
+import contextlib
+import os
+import sys
 from typing import Any
 
+import anyio
 from mcp.server.fastmcp import FastMCP, Image
 
-from . import mail
+from . import auth, config, mail, outlook_auth, setup_auth
 
 
 def build_server(*, remote: bool = False, **fastmcp_kwargs: Any) -> FastMCP:
@@ -26,7 +31,9 @@ def build_server(*, remote: bool = False, **fastmcp_kwargs: Any) -> FastMCP:
 
     remote=True changes read_attachment so non-text attachments are returned
     inline (images) instead of being saved to the server's disk, where the
-    user could never open them.
+    user could never open them. It also leaves out the local setup tools
+    (setup_status, authorize_account): those open a browser on the server
+    machine and reveal local file paths.
     """
     mcp = FastMCP("gmail-mcp", **fastmcp_kwargs)
     _register_tools(mcp, remote=remote)
@@ -205,6 +212,113 @@ def _register_tools(mcp: FastMCP, *, remote: bool) -> None:  # noqa: C901
                     shown by list_attachments.
             """
             return mail.read_attachment(account, message_id, attachment)
+
+    if not remote:
+        _register_local_setup_tools(mcp)
+
+
+# --- Setup tools for users without a terminal (e.g. Claude Desktop) ---------
+# Local (stdio) only. Never register these on the remote connector:
+# authorize_account runs an OAuth loopback flow and opens a browser on the
+# machine running the server, and setup_status reports local paths.
+
+_PROVIDER_ENV_VARS = {
+    "gmail": ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"),
+    "outlook": ("MICROSOFT_CLIENT_ID", "MICROSOFT_TENANT_ID"),
+}
+_AUTH_MODULES = {"gmail": auth, "outlook": outlook_auth}
+
+_CONFIG_EXAMPLE = (
+    '  {"accounts": {"personal": "you@gmail.com",\n'
+    '                "work": {"email": "you@company.com", "provider": "outlook"}}}'
+)
+
+
+def _setup_status() -> str:
+    cfg_path = config.CONFIG_PATH
+    lines = [f"Config file: {cfg_path} ({'found' if cfg_path.exists() else 'missing'})"]
+
+    try:
+        accounts = {
+            alias: config.resolve_account(alias)
+            for alias in config.list_account_aliases()
+        }
+    except (config.ConfigError, ValueError, OSError) as e:
+        lines += ["", f"Config could not be loaded: {e}",
+                  f"Create {cfg_path} like:", _CONFIG_EXAMPLE]
+        accounts = {}
+
+    providers_used = {a["provider"] for a in accounts.values()}
+    authorized = {
+        provider: {e.lower() for e in module.list_authorized_emails()}
+        for provider, module in _AUTH_MODULES.items()
+    }
+
+    if accounts:
+        lines += ["", "Accounts:"]
+        for alias, acct in accounts.items():
+            ok = acct["email"].lower() in authorized[acct["provider"]]
+            status = "authorized" if ok else "NOT authorized -> call authorize_account"
+            lines.append(f"  {alias}: {acct['email']} [{acct['provider']}] - {status}")
+
+    lines += ["", f"Token store: {auth.DB_PATH}", "", "Environment variables:"]
+    missing_needed = False
+    for provider, names in _PROVIDER_ENV_VARS.items():
+        for name in names:
+            is_set = bool(os.environ.get(name))
+            needed = provider in providers_used
+            note = "set" if is_set else ("MISSING (needed)" if needed else "not set (unused)")
+            lines.append(f"  {name}: {note}")
+            missing_needed |= needed and not is_set
+    if missing_needed:
+        lines += ["", "Set the missing values in the extension's settings "
+                  "(Claude Desktop) or the MCP server's env block, then restart the server."]
+    return "\n".join(lines)
+
+
+def _run_authorization(alias: str) -> str:
+    acct = config.resolve_account(alias)
+    backend = setup_auth._backend(acct["provider"])
+    # The OAuth libraries print the sign-in URL to stdout, which would corrupt
+    # the stdio MCP stream. Send it to stderr (the server log) instead.
+    with contextlib.redirect_stdout(sys.stderr):
+        actual = backend.authorize_account(email_hint=acct["email"])
+    if actual.lower() != acct["email"].lower():
+        return (
+            f"Signed in as {actual}, but config lists {acct['email']} for alias "
+            f"'{alias}'. Tokens were saved for {actual}. Re-run authorize_account "
+            "and pick the right account, or update the config file."
+        )
+    return f"Authorized {actual} (alias '{alias}', provider {acct['provider']})."
+
+
+def _register_local_setup_tools(mcp: FastMCP) -> None:
+
+    @mcp.tool()
+    def setup_status() -> str:
+        """Report setup state: config file location, accounts, auth status, missing env vars.
+
+        Call this when list_accounts fails or an account is not authorized. It
+        explains what is missing and what to do next (e.g. call authorize_account).
+        """
+        return _setup_status()
+
+    @mcp.tool()
+    async def authorize_account(account: str) -> str:
+        """Authorize a configured account by opening the provider's sign-in page in the browser.
+
+        Runs the same OAuth flow as `gmail-mcp-setup add <alias>`. A browser
+        window opens on this computer; the user must sign in with the matching
+        account and approve. This call waits until sign-in finishes. Tell the
+        user to look for the browser window before calling.
+
+        Args:
+            account: Account alias from the config file (see setup_status).
+        """
+        try:
+            return await anyio.to_thread.run_sync(_run_authorization, account)
+        except (config.ConfigError, auth.AuthError, outlook_auth.AuthError) as e:
+            return f"Authorization failed: {e}\nCall setup_status for details."
 
 
 # Local stdio server used by Claude Code.
