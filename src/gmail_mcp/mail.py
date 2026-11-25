@@ -158,7 +158,11 @@ def list_all_accounts() -> str:
     authorized = _authorized_emails_by_provider()
     lines = ["Configured accounts:"]
     for alias in aliases:
-        acct = config.resolve_account(alias)
+        try:
+            acct = config.resolve_account(alias)
+        except config.ConfigError as e:
+            lines.append(f"  {alias}: ⚠️ config error: {e}")
+            continue
         ok = _is_authorized(acct, authorized)
         status = "✅ authorized" if ok else "❌ not authorized (run setup_auth add)"
         lines.append(
@@ -173,7 +177,11 @@ def search_all(query: str, max_per_account: int = 10) -> str:
     authorized = _authorized_emails_by_provider()
     out = []
     for alias in aliases:
-        acct = config.resolve_account(alias)
+        try:
+            acct = config.resolve_account(alias)
+        except config.ConfigError as e:
+            out.append(f"=== {alias}: skipped (config error: {e}) ===\n")
+            continue
         label = f"{alias} ({acct['email']}) [{acct['provider']}]"
         if not _is_authorized(acct, authorized):
             out.append(f"=== {label}: skipped (not authorized) ===\n")
