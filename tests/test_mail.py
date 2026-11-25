@@ -138,18 +138,20 @@ def test_search_all_one_account_failing_does_not_abort(backends, authorized):
     assert "=== side (side@gmail.com) [gmail] ===\n  Error: token expired" in out
 
 
-@pytest.mark.xfail(
-    reason=(
-        "BUG: search_all/list_all_accounts call config.resolve_account() outside "
-        "the per-account try/except, so one malformed config entry (e.g. unknown "
-        "provider) aborts the whole fan-out instead of being reported per account."
-    ),
-    strict=True,
-)
 def test_search_all_malformed_account_does_not_abort(backends, authorized, fake_config):
-    g, _ = backends
+    g, o = backends
     g.search.return_value = "personal-ok"
+    o.search.return_value = "work-ok"
     fake_config["broken"] = {"email": "x@y.com", "provider": "yahoo"}
     out = mail.search_all("x")
     assert "personal-ok" in out
-    assert "broken" in out
+    assert "=== broken: skipped (config error: Account 'broken' has unknown provider 'yahoo'" in out
+    g.search.assert_any_call("side", "x", 10)
+
+
+def test_list_all_accounts_malformed_account_does_not_abort(backends, authorized, fake_config):
+    fake_config["broken"] = {"provider": "gmail"}  # missing email
+    out = mail.list_all_accounts()
+    assert "personal: me@gmail.com  [gmail]  [✅ authorized]" in out
+    assert "broken: ⚠️ config error: Account 'broken' must have a string 'email' field." in out
+    assert "work: me@work.com" in out
