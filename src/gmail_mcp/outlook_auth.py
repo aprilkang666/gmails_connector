@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from pathlib import Path
 
 import msal
+
+from . import config
 
 # Delegated Microsoft Graph scopes. MSAL adds offline_access / openid /
 # profile automatically — do not list them here.
@@ -27,7 +28,7 @@ SCOPES = [
     "User.Read",
 ]
 
-DB_PATH = Path.home() / ".gmail-mcp" / "tokens.db"
+DB_PATH = config.DATA_DIR / "tokens.db"
 
 
 class AuthError(Exception):

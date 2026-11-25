@@ -19,10 +19,17 @@
   "support": "https://github.com/aprilkang666/gmails_connector/issues",
   "server": {
     "type": "uv",
-    "entry_point": "src/gmail_mcp/server.py",
+    "entry_point": "src/gmail_mcp/desktop.py",
     "mcp_config": {
       "command": "uv",
-      "args": ["run", "--directory", "${__dirname}", "python", "-m", "gmail_mcp.server"],
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "python",
+        "-m",
+        "gmail_mcp.desktop"
+      ],
       "env": {
         "GOOGLE_CLIENT_ID": "${user_config.google_client_id}",
         "GOOGLE_CLIENT_SECRET": "${user_config.google_client_secret}",
@@ -33,23 +40,73 @@
     }
   },
   "tools": [
-    {"name": "list_accounts", "description": "List configured mail accounts, their provider (Gmail or Outlook), and auth status."},
-    {"name": "search_emails", "description": "Search one account using Gmail query syntax or Microsoft Graph KQL."},
-    {"name": "search_all_accounts", "description": "Run the same search across every authorized account."},
-    {"name": "read_email", "description": "Read the full body of a message."},
-    {"name": "read_thread", "description": "Read an entire email thread."},
-    {"name": "create_draft", "description": "Create a draft in a chosen account. Does not send."},
-    {"name": "send_draft", "description": "Send a previously created draft after the user confirms."},
-    {"name": "list_labels", "description": "List labels / folders in an account."},
-    {"name": "modify_labels", "description": "Add or remove labels on a message (archive, mark read, star, trash)."},
-    {"name": "list_attachments", "description": "List the attachments on a message."},
-    {"name": "read_attachment", "description": "Read an attachment: PDF and text inline, other files saved to ~/Downloads/gmail-mcp/."},
-    {"name": "setup_status", "description": "Show config file location, which accounts are authorized, and missing settings."},
-    {"name": "authorize_account", "description": "Open the browser sign-in flow for a configured account alias."}
+    {
+      "name": "list_accounts",
+      "description": "List configured mail accounts, their provider (Gmail or Outlook), and auth status."
+    },
+    {
+      "name": "search_emails",
+      "description": "Search one account using Gmail query syntax or Microsoft Graph KQL."
+    },
+    {
+      "name": "search_all_accounts",
+      "description": "Run the same search across every authorized account."
+    },
+    {
+      "name": "read_email",
+      "description": "Read the full body of a message."
+    },
+    {
+      "name": "read_thread",
+      "description": "Read an entire email thread."
+    },
+    {
+      "name": "create_draft",
+      "description": "Create a draft in a chosen account. Does not send."
+    },
+    {
+      "name": "send_draft",
+      "description": "Send a previously created draft after the user confirms."
+    },
+    {
+      "name": "list_labels",
+      "description": "List labels / folders in an account."
+    },
+    {
+      "name": "modify_labels",
+      "description": "Add or remove labels on a message (archive, mark read, star, trash)."
+    },
+    {
+      "name": "list_attachments",
+      "description": "List the attachments on a message."
+    },
+    {
+      "name": "read_attachment",
+      "description": "Read an attachment: PDF and text inline, other files saved to ~/Downloads/gmail-mcp/."
+    },
+    {
+      "name": "setup_status",
+      "description": "Show config file location, which accounts are authorized, and missing settings."
+    },
+    {
+      "name": "authorize_account",
+      "description": "Open the browser sign-in flow for a configured account alias."
+    }
   ],
-  "keywords": ["gmail", "outlook", "microsoft-365", "email", "multi-account", "attachments"],
+  "keywords": [
+    "gmail",
+    "outlook",
+    "microsoft-365",
+    "email",
+    "multi-account",
+    "attachments"
+  ],
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"],
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
     "runtimes": {
       "python": ">=3.11"
     }
