@@ -1,23 +1,34 @@
 # gmail-mcp
 
-MCP server for managing multiple Gmail and Outlook (Microsoft 365) accounts. Run it locally for Claude Code, or remotely as a **claude.ai custom connector** so the same tools work in claude.ai, the desktop app and mobile (see [Use as a claude.ai custom connector](#use-as-a-claudeai-custom-connector)).
+MCP server for managing multiple Gmail and Outlook (Microsoft 365) accounts. Run it locally over stdio for Claude Code, Claude Desktop, Cursor, VS Code, Codex, Gemini CLI or any other MCP client, or remotely as a **claude.ai custom connector** so the same tools work in claude.ai, the desktop app and mobile (see [Use as a claude.ai custom connector](#use-as-a-claudeai-custom-connector)).
+
+## Install
+
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/). Nothing else has to be installed or cloned — `uvx` fetches and caches the package on first run:
+
+```bash
+uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp
+```
+
+That command is what your MCP client runs (see [step 4](#4-connect-your-mcp-client)). The package provides three commands:
+
+| Command | What it does |
+|---------|--------------|
+| `gmail-mcp` | The MCP server (stdio). Your MCP client starts it. |
+| `gmail-mcp-setup` | One-time setup: `init`, `add <alias>`, `list`, `remove <alias>`. |
+| `gmail-mcp-remote` | The same tools over HTTPS for claude.ai (see [below](#use-as-a-claudeai-custom-connector)). |
+
+Tip: to skip the long `--from` prefix, install the commands once with `uv tool install git+https://github.com/aprilkang666/gmails_connector`, then use `gmail-mcp` / `gmail-mcp-setup` directly.
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Configure your accounts
 
 ```bash
-cd gmail-mcp
-uv sync
+uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp-setup init
 ```
 
-### 2. Configure your accounts
-
-```bash
-cp config.json.example config.json
-```
-
-Edit `config.json` to list your accounts. Each alias is whatever name you'd like Claude to use:
+This writes an example config to `~/.gmail-mcp/config.json` (or `$GMAIL_MCP_HOME/config.json` if you set that) (it won't overwrite an existing one). Edit it to list your accounts. Each alias is whatever name you'd like the assistant to use:
 
 ```json
 {
@@ -30,7 +41,13 @@ Edit `config.json` to list your accounts. Each alias is whatever name you'd like
 
 A bare email string is treated as Gmail. For Outlook / Microsoft 365 accounts, use the object form with `"provider": "outlook"`.
 
-### 3. Create your provider OAuth client(s)
+Config lookup order:
+
+1. `$GMAIL_MCP_CONFIG` — full path to a config file, if set.
+2. `$GMAIL_MCP_HOME/config.json` — `GMAIL_MCP_HOME` defaults to `~/.gmail-mcp`, which is also where tokens are stored.
+3. `config.json` in the repo root (legacy location for clone-based installs; still read, with a reminder to move it).
+
+### 2. Create your provider OAuth client(s)
 
 Do the step(s) for the providers you actually use.
 
@@ -47,7 +64,7 @@ Do the step(s) for the providers you actually use.
    export GOOGLE_CLIENT_SECRET="GOCSPX-..."
    ```
 
-   (You'll also put them in the Claude Code config — see step 5.)
+   (You'll also put them in your MCP client config — see step 4.)
 
 #### Outlook / Microsoft 365 — Azure app registration
 
@@ -71,40 +88,62 @@ Do the step(s) for the providers you actually use.
    export MICROSOFT_TENANT_ID="..."   # or "common" / "consumers"
    ```
 
-### 4. Authorize each account
+### 3. Authorize each account
 
-Run once per alias in `config.json`:
+Run once per alias in your config, in the shell where you exported the client IDs from step 2:
 
 ```bash
-uv run python -m gmail_mcp.setup_auth add personal
-uv run python -m gmail_mcp.setup_auth add work
+uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp-setup add personal
+uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp-setup add work
 ```
 
-A browser opens. Sign in with the account that matches the alias and approve. The tool routes Gmail aliases to Google's OAuth flow and Outlook aliases to Microsoft's automatically.
+A browser opens. Sign in with the account that matches the alias and approve. Gmail aliases go through Google's OAuth flow and Outlook aliases through Microsoft's, automatically. Tokens are stored in `~/.gmail-mcp/tokens.db`.
 
 Verify:
 
 ```bash
-uv run python -m gmail_mcp.setup_auth list
+uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp-setup list
 ```
 
-### 5. Wire into Claude Code
+### 4. Connect your MCP client
 
-Add to `~/.claude.json` (or run `claude mcp add` if your CLI has it). Include only the env vars for the providers you use:
+Every client needs the same thing: run `uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp` over stdio, with the OAuth client env vars for the providers you use (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_TENANT_ID`). Optionally add `GMAIL_MCP_CONFIG` if your config isn't at `~/.gmail-mcp/config.json`. See [Use with other clients](#use-with-other-clients) for each client's format.
+
+For Claude Code:
+
+```bash
+claude mcp add --transport stdio \
+  --env GOOGLE_CLIENT_ID="...apps.googleusercontent.com" \
+  --env GOOGLE_CLIENT_SECRET="GOCSPX-..." \
+  --env MICROSOFT_CLIENT_ID="..." \
+  --env MICROSOFT_TENANT_ID="..." \
+  --scope user gmail \
+  -- uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp
+```
+
+Leave out the `--env` lines for providers you don't use. Restart Claude Code, then run `/mcp` to confirm the `gmail` server shows up with its tools.
+
+## Use with other clients
+
+All examples below use the server name `gmail`; drop the env vars for providers you don't use. GUI apps often don't inherit your shell `PATH`, so if a client can't find `uvx`, replace `"uvx"` with its absolute path (`which uvx` on macOS/Linux, `where uvx` on Windows).
+
+### Claude Code
+
+See [step 4](#4-connect-your-mcp-client). `--scope user` makes the server available in all projects; use `--scope project` to write it to a shared `.mcp.json` instead (don't commit real secrets). Note that `claude mcp add` needs another option between the last `--env` and the server name, which is why `--scope` appears there.
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "gmail": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/ABSOLUTE/PATH/TO/gmail-mcp",
-        "python",
-        "-m",
-        "gmail_mcp.server"
-      ],
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/aprilkang666/gmails_connector", "gmail-mcp"],
       "env": {
         "GOOGLE_CLIENT_ID": "...apps.googleusercontent.com",
         "GOOGLE_CLIENT_SECRET": "GOCSPX-...",
@@ -116,7 +155,104 @@ Add to `~/.claude.json` (or run `claude mcp add` if your CLI has it). Include on
 }
 ```
 
-Restart Claude Code, then run `/mcp` to confirm the `gmail` server shows up with its tools.
+Claude Desktop needs absolute paths, so use the full path to `uvx` here. Fully quit and restart Claude Desktop afterwards. Logs: `~/Library/Logs/Claude/mcp*.log` (macOS), `%APPDATA%\Claude\logs` (Windows).
+
+For a one-click install, see the Desktop Extension section.
+
+### Cursor
+
+Create `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project):
+
+```json
+{
+  "mcpServers": {
+    "gmail": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/aprilkang666/gmails_connector", "gmail-mcp"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "${env:GOOGLE_CLIENT_ID}",
+        "GOOGLE_CLIENT_SECRET": "${env:GOOGLE_CLIENT_SECRET}",
+        "MICROSOFT_CLIENT_ID": "${env:MICROSOFT_CLIENT_ID}",
+        "MICROSOFT_TENANT_ID": "${env:MICROSOFT_TENANT_ID}"
+      }
+    }
+  }
+}
+```
+
+`${env:NAME}` reads the value from Cursor's environment; you can also paste literal values, or point `envFile` at a `.env` file.
+
+### VS Code (GitHub Copilot)
+
+Add to `~/.copilot/mcp-config.json` (all workspaces; `$COPILOT_HOME/mcp-config.json` if that's set) or `.mcp.json` at the workspace root. You can also run **MCP: Add Server** from the Command Palette.
+
+```json
+{
+  "mcpServers": {
+    "gmail": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/aprilkang666/gmails_connector", "gmail-mcp"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "...apps.googleusercontent.com",
+        "GOOGLE_CLIENT_SECRET": "GOCSPX-...",
+        "MICROSOFT_CLIENT_ID": "...",
+        "MICROSOFT_TENANT_ID": "..."
+      },
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+VS Code's docs mark the older `.vscode/mcp.json` / `"servers"` format as deprecated for new Copilot configurations. Don't put real credentials in a workspace `.mcp.json` you commit.
+
+### OpenAI Codex CLI
+
+```bash
+codex mcp add gmail \
+  --env GOOGLE_CLIENT_ID="...apps.googleusercontent.com" \
+  --env GOOGLE_CLIENT_SECRET="GOCSPX-..." \
+  -- uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp
+```
+
+Or edit `~/.codex/config.toml` directly:
+
+```toml
+[mcp_servers.gmail]
+command = "uvx"
+args = ["--from", "git+https://github.com/aprilkang666/gmails_connector", "gmail-mcp"]
+
+[mcp_servers.gmail.env]
+GOOGLE_CLIENT_ID = "...apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "GOCSPX-..."
+MICROSOFT_CLIENT_ID = "..."
+MICROSOFT_TENANT_ID = "..."
+```
+
+### Gemini CLI
+
+Add to `~/.gemini/settings.json` (user) or `.gemini/settings.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "gmail": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/aprilkang666/gmails_connector", "gmail-mcp"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "$GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET": "$GOOGLE_CLIENT_SECRET",
+        "MICROSOFT_CLIENT_ID": "$MICROSOFT_CLIENT_ID",
+        "MICROSOFT_TENANT_ID": "$MICROSOFT_TENANT_ID"
+      }
+    }
+  }
+}
+```
+
+Gemini CLI expands `$VAR` / `${VAR}` in `env` from your shell environment (undefined variables become empty strings), so you can keep the secrets out of the file. You can also use `gemini mcp add -s user -e KEY=value ...`.
 
 ## Use as a claude.ai custom connector
 
@@ -131,7 +267,7 @@ In this mode the server:
 
 ### 1. Authorize your mail accounts locally
 
-Do steps 1–4 above on your own computer. The Google and Microsoft sign-ins need a local browser, so they always happen there. You end up with `config.json` and `~/.gmail-mcp/tokens.db`.
+Do steps 1–4 above on your own computer. The Google and Microsoft sign-ins need a local browser, so they always happen there. You end up with `~/.gmail-mcp/config.json` and `~/.gmail-mcp/tokens.db`.
 
 ### 2. Pick a password and a public HTTPS address
 
@@ -153,7 +289,8 @@ export CONNECTOR_BASE_URL="https://mail.example.com"   # the tunnel's public ori
 export CONNECTOR_PASSWORD="..."                        # from above
 export GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...   # same as for Claude Code
 export MICROSOFT_CLIENT_ID=... MICROSOFT_TENANT_ID=...
-uv run python -m gmail_mcp.remote                      # listens on 127.0.0.1:8000
+uvx --from git+https://github.com/aprilkang666/gmails_connector gmail-mcp-remote   # listens on 127.0.0.1:8000
+# (from a clone: uv run gmail-mcp-remote, or uv run python -m gmail_mcp.remote)
 ```
 
 A quick `trycloudflare.com` URL changes every time the tunnel restarts, and the connector in claude.ai would then need to be re-added. Use a named tunnel for anything long-lived.
@@ -161,7 +298,7 @@ A quick `trycloudflare.com` URL changes every time the tunnel restarts, and the 
 **Option B: a server or container host** (a VPS, Fly.io, Render, Railway…). It's always on, but your mail tokens live on that host.
 
 ```bash
-mkdir data && cp config.json ~/.gmail-mcp/tokens.db data/
+mkdir data && cp ~/.gmail-mcp/config.json ~/.gmail-mcp/tokens.db data/
 docker build -t mail-connector .
 docker run -d --name mail-connector -p 8000:8000 -v "$PWD/data:/data" \
   -e CONNECTOR_BASE_URL=https://mail.example.com -e CONNECTOR_PASSWORD=... \
@@ -191,14 +328,27 @@ To disconnect every client at once, stop the server and delete `connector.db` (i
 | `CONNECTOR_PASSWORD` | required | Owner password, ≥ 12 characters |
 | `HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address (the Docker image uses `0.0.0.0`) |
 | `CONNECTOR_REDIRECT_HOSTS` | `claude.ai,claude.com` | OAuth callback hosts to accept |
-| `GMAIL_MCP_HOME` | `~/.gmail-mcp` | Directory with `tokens.db` and `connector.db` |
-| `GMAIL_MCP_CONFIG` | `./config.json` | Path to the account list |
+| `GMAIL_MCP_HOME` | `~/.gmail-mcp` | Directory with `config.json`, `tokens.db` and `connector.db` |
+| `GMAIL_MCP_CONFIG` | `$GMAIL_MCP_HOME/config.json` | Path to the account list (a repo-root `config.json` is still read as a legacy fallback) |
 
-Tests: `uv run pytest`.
+## Development
+
+Clone the repo and run from source with `uv run`:
+
+```bash
+git clone https://github.com/aprilkang666/gmails_connector
+cd gmails_connector
+uv sync
+uv run gmail-mcp-setup list          # or: uv run python -m gmail_mcp.setup_auth list
+uv run gmail-mcp                    # or: uv run python -m gmail_mcp.server
+uv run pytest
+```
+
+To point an MCP client at your checkout, use `"command": "uv"` with `"args": ["run", "--directory", "/ABSOLUTE/PATH/TO/gmails_connector", "gmail-mcp"]`.
 
 ## Usage
 
-Ask Claude Code things like:
+Ask your assistant things like:
 
 - "What accounts do I have configured?" (→ `list_accounts`)
 - "Find unread emails from my boss in my work account" (→ `search_emails`)
@@ -210,7 +360,7 @@ Ask Claude Code things like:
 
 ## Safety design
 
-- **Draft-then-send.** Claude never sends directly. It creates a draft, and you explicitly tell it to send.
+- **Draft-then-send.** The assistant never sends directly. It creates a draft, and you explicitly tell it to send.
 - **Explicit account scoping.** Every tool requires an `account` argument. No implicit "default" account.
 - **Local tokens.** Credentials live in `~/.gmail-mcp/tokens.db`. In local mode they never leave your machine; as a remote connector they live wherever the server runs (your computer with option A).
 - **Password-gated remote access.** The custom connector issues tokens only after you type the connector password, and only to claude.ai / claude.com callbacks.
@@ -219,6 +369,8 @@ Ask Claude Code things like:
 ## Troubleshooting
 
 - **"Unverified app" warning** on first Google sign-in: expected if your OAuth project is in Testing mode or published but unverified. Click "Advanced → Go to [app] (unsafe)" — it's your own app.
-- **Google refresh tokens expire after 7 days**: you're in Testing mode. Either re-run `setup_auth add` weekly, or publish the app (unverified is fine) under the Google Auth Platform → Audience tab.
-- **`GOOGLE_CLIENT_ID ... must be set`** or **`MICROSOFT_CLIENT_ID ... must be set`**: the env vars aren't reaching the server. Check the `env` block in your Claude Code config.
+- **Google refresh tokens expire after 7 days**: you're in Testing mode. Either re-run `gmail-mcp-setup add` weekly, or publish the app (unverified is fine) under the Google Auth Platform → Audience tab.
+- **`GOOGLE_CLIENT_ID ... must be set`** or **`MICROSOFT_CLIENT_ID ... must be set`**: the env vars aren't reaching the server. Check the `env` block in your MCP client config.
 - **Outlook sign-in fails with a tenant / `AADSTS` error**: your `MICROSOFT_TENANT_ID` doesn't match the account type. Try `common` for any Microsoft account or `consumers` for personal outlook.com / hotmail.com addresses.
+- **`No config.json found`**: run `gmail-mcp-setup init`, or set `GMAIL_MCP_CONFIG` to your config file's full path.
+- **Client says `uvx` not found**: use the absolute path to `uvx` as the `command`.

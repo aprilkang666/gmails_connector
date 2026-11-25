@@ -1,12 +1,12 @@
 # Remote mail connector (claude.ai custom connector).
 # Mount a volume at /data holding config.json and tokens.db (created locally
-# with setup_auth), and set CONNECTOR_BASE_URL + CONNECTOR_PASSWORD.
+# with gmail-mcp-setup), and set CONNECTOR_BASE_URL + CONNECTOR_PASSWORD.
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /usr/local/bin/uv
 
 WORKDIR /app
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src ./src
 RUN uv sync --frozen --no-dev
 

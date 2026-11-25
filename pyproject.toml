@@ -1,10 +1,19 @@
 [project]
 name = "gmail-mcp"
 version = "0.1.0"
-description = "MCP server for multiple Gmail and Outlook accounts: local for Claude Code, or remote as a claude.ai custom connector"
+description = "MCP server for multiple Gmail and Outlook (Microsoft 365) accounts: local stdio for Claude Code, Claude Desktop, Cursor, VS Code and other MCP clients, or remote as a claude.ai custom connector"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
+keywords = ["mcp", "gmail", "outlook", "microsoft-365", "email", "claude"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Communications :: Email",
+]
 dependencies = [
-    "mcp>=1.2.0",
+    "mcp>=1.22.0,<2",
     "google-api-python-client>=2.150.0",
     "google-auth-oauthlib>=1.2.1",
     "google-auth-httplib2>=0.2.0",
@@ -13,14 +22,20 @@ dependencies = [
     "pypdf>=5.0.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/aprilkang666/gmails_connector"
+Repository = "https://github.com/aprilkang666/gmails_connector"
+
 [project.scripts]
+gmail-mcp = "gmail_mcp.server:main"
+gmail-mcp-setup = "gmail_mcp.setup_auth:main"
 gmail-mcp-remote = "gmail_mcp.remote:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

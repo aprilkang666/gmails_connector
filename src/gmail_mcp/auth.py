@@ -119,7 +119,7 @@ def get_credentials(email: str) -> Credentials:
     if not row:
         raise AuthError(
             f"No saved credentials for {email}. "
-            f"Run: uv run python -m gmail_mcp.setup_auth add <alias>"
+            f"Run: gmail-mcp-setup add <alias>"
         )
 
     creds = Credentials.from_authorized_user_info(json.loads(row[0]), SCOPES)
@@ -136,7 +136,7 @@ def get_credentials(email: str) -> Credentials:
         conn.close()
 
     if not creds.valid:
-        raise AuthError(f"Credentials for {email} are invalid. Re-run setup_auth.")
+        raise AuthError(f"Credentials for {email} are invalid. Re-run `gmail-mcp-setup add`.")
 
     return creds
 

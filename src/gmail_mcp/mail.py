@@ -160,7 +160,7 @@ def list_all_accounts() -> str:
     for alias in aliases:
         acct = config.resolve_account(alias)
         ok = _is_authorized(acct, authorized)
-        status = "✅ authorized" if ok else "❌ not authorized (run setup_auth add)"
+        status = "✅ authorized" if ok else "❌ not authorized (run gmail-mcp-setup add)"
         lines.append(
             f"  {alias}: {acct['email']}  [{acct['provider']}]  [{status}]"
         )

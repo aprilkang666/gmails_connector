@@ -211,5 +211,9 @@ def _register_tools(mcp: FastMCP, *, remote: bool) -> None:  # noqa: C901
 mcp = build_server()
 
 
-if __name__ == "__main__":
+def main() -> None:
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

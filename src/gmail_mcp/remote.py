@@ -19,7 +19,8 @@ Environment:
                        (default: claude.ai,claude.com)
   GMAIL_MCP_HOME       Directory for tokens.db and connector.db
                        (default ~/.gmail-mcp)
-  GMAIL_MCP_CONFIG     Path to config.json (default: repo root)
+  GMAIL_MCP_CONFIG     Path to config.json (default: $GMAIL_MCP_HOME/config.json,
+                       then the legacy repo-root config.json)
 plus the GOOGLE_* / MICROSOFT_* variables the providers already need.
 """
 from __future__ import annotations
