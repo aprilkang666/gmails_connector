@@ -4,10 +4,11 @@ Routes to the Gmail or Outlook (Microsoft 365) auth flow based on each
 alias's provider in config.json.
 
 Usage:
-    gmail-mcp-auth init            create ~/.gmail-mcp/config.json from an example
-    gmail-mcp-auth add <alias>     authorize an account listed in config.json
-    gmail-mcp-auth list            show configured and authorized accounts
-    gmail-mcp-auth remove <alias>  delete stored credentials for an alias
+    gmail-mcp-setup init            create $GMAIL_MCP_HOME/config.json
+                                    (default ~/.gmail-mcp) from an example
+    gmail-mcp-setup add <alias>     authorize an account listed in config.json
+    gmail-mcp-setup list            show configured and authorized accounts
+    gmail-mcp-setup remove <alias>  delete stored credentials for an alias
 
 `python -m gmail_mcp.setup_auth <command>` works the same way.
 """
@@ -31,7 +32,7 @@ def cmd_init() -> None:
     path = config.DEFAULT_CONFIG_PATH
     if config.write_example_config(path):
         print(f"Wrote example config to {path}")
-        print("Edit it to list your accounts, then run `gmail-mcp-auth add <alias>`.")
+        print("Edit it to list your accounts, then run `gmail-mcp-setup add <alias>`.")
     else:
         print(f"Config already exists at {path}; left it unchanged.")
 

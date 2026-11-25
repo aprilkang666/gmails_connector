@@ -8,11 +8,12 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+
+from . import config
 
 
 # Minimum scopes for our toolset. Adjust if you add/remove tools.
@@ -23,7 +24,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",     # labels, archive, mark read
 ]
 
-DB_PATH = Path.home() / ".gmail-mcp" / "tokens.db"
+DB_PATH = config.DATA_DIR / "tokens.db"
 
 
 class AuthError(Exception):
@@ -118,7 +119,7 @@ def get_credentials(email: str) -> Credentials:
     if not row:
         raise AuthError(
             f"No saved credentials for {email}. "
-            f"Run: uv run python -m gmail_mcp.setup_auth add <alias>"
+            f"Run: gmail-mcp-setup add <alias>"
         )
 
     creds = Credentials.from_authorized_user_info(json.loads(row[0]), SCOPES)
@@ -135,7 +136,7 @@ def get_credentials(email: str) -> Credentials:
         conn.close()
 
     if not creds.valid:
-        raise AuthError(f"Credentials for {email} are invalid. Re-run setup_auth.")
+        raise AuthError(f"Credentials for {email} are invalid. Re-run `gmail-mcp-setup add`.")
 
     return creds
 

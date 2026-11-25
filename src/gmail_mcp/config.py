@@ -16,7 +16,13 @@ from pathlib import Path
 
 
 CONFIG_ENV_VAR = "GMAIL_MCP_CONFIG"
-DEFAULT_CONFIG_PATH = Path.home() / ".gmail-mcp" / "config.json"
+
+# Where config.json (by default), tokens.db and, for the remote connector,
+# connector.db live. Override with GMAIL_MCP_HOME, e.g. when the server runs in
+# a container with its data on a mounted volume.
+DATA_DIR = Path(os.environ.get("GMAIL_MCP_HOME") or Path.home() / ".gmail-mcp")
+DEFAULT_CONFIG_PATH = DATA_DIR / "config.json"
+
 # Pre-packaging location (repo root, next to pyproject.toml). Still honoured so
 # existing clone-based installs keep working.
 LEGACY_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.json"
@@ -43,7 +49,7 @@ def find_config_path() -> Path:
 
     Lookup order:
       1. $GMAIL_MCP_CONFIG (full path to the file)
-      2. ~/.gmail-mcp/config.json
+      2. $GMAIL_MCP_HOME/config.json (default ~/.gmail-mcp/config.json)
       3. <repo root>/config.json (legacy; prints a one-time stderr hint)
     """
     global _warned_legacy
@@ -68,7 +74,7 @@ def find_config_path() -> Path:
             _warned_legacy = True
         return LEGACY_CONFIG_PATH
     raise ConfigError(
-        f"No config.json found. Run `gmail-mcp-auth init` to create "
+        f"No config.json found. Run `gmail-mcp-setup init` to create "
         f"{DEFAULT_CONFIG_PATH} from an example, then edit it to list your accounts "
         f"(or set {CONFIG_ENV_VAR} to the full path of a config file)."
     )
