@@ -222,3 +222,15 @@ Ask Claude Code things like:
 - **Google refresh tokens expire after 7 days**: you're in Testing mode. Either re-run `setup_auth add` weekly, or publish the app (unverified is fine) under the Google Auth Platform → Audience tab.
 - **`GOOGLE_CLIENT_ID ... must be set`** or **`MICROSOFT_CLIENT_ID ... must be set`**: the env vars aren't reaching the server. Check the `env` block in your Claude Code config.
 - **Outlook sign-in fails with a tenant / `AADSTS` error**: your `MICROSOFT_TENANT_ID` doesn't match the account type. Try `common` for any Microsoft account or `consumers` for personal outlook.com / hotmail.com addresses.
+
+## Development
+
+Tests are fully offline: Gmail / Graph API calls are mocked, token storage uses a temporary SQLite file, and attachments are saved under a temp dir — no real accounts, network, or `~/Downloads` writes. This includes the remote connector tests (`tests/test_connector.py`).
+
+```bash
+uv sync              # installs runtime + dev deps (pytest, ruff)
+uv run pytest        # run the test suite
+uv run ruff check .  # lint
+```
+
+CI (`.github/workflows/ci.yml`) runs `ruff check` and `pytest` on Python 3.11 and 3.12 for every PR and push to `main`. `ruff format` is not enforced yet.
